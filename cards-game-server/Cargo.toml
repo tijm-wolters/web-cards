@@ -1,0 +1,11 @@
+[package]
+name = "cards-game-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix = "0.13"
+actix-web = "4"
+actix-web-actors = "4"
+uuid = { version = "1.3", features = ["v4"] }
+
