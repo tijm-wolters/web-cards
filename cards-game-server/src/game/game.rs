@@ -8,12 +8,23 @@ use crate::{message::{WsMessage, GameMessage, Disconnect, Connect}, game::json, 
 
 type Socket = Recipient<WsMessage>;
 
-#[derive(Default)]
+pub enum GameType {
+  TicTacToe,
+}
+
 pub struct Game {
   connections: HashMap<Uuid, Socket>,
+  r#type: GameType,
 }
 
 impl Game {
+  pub fn new(r#type: GameType) -> Game {
+    Game {
+      connections: HashMap::new(),
+      r#type,
+    }
+  }
+
   pub fn send_message(&self, message: &str, recipient_id: &Uuid) {
     if let Some(socket_recipient) = self.connections.get(recipient_id) {
       socket_recipient.do_send(WsMessage(message.to_owned()));
@@ -82,6 +93,10 @@ impl Handler<GameMessage> for Game {
   type Result = ();
 
   fn handle(&mut self, msg: GameMessage, _: &mut Self::Context) -> Self::Result {
+    // I'm thinking the game itself should keep and handle all the logic?
+    match self.r#type {
+      GameType::TicTacToe => todo!(),
+    }
     // Perform game logic
     // Send response to all clients
 
