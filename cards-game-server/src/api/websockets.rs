@@ -1,7 +1,7 @@
 use actix::{fut, Actor, Addr, StreamHandler, AsyncContext, Running, Handler, WrapFuture, ActorFutureExt, ActorContext, ContextFutureSpawner};
-use actix_web::{get, web::{self, Data}, Error, HttpRequest, HttpResponse};
+use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
-use std::{time::{Duration, Instant}, collections::HashMap};
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 use crate::{game::Game, message::{Connect, Disconnect, WsMessage, GameMessage}};
@@ -80,23 +80,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocket {
   }
 }
 
-#[get("/ws/{id}")]
 pub async fn index(
     req: HttpRequest,
     stream: web::Payload,
-    game_id: web::Path<String>,
-    game_pool: Data<HashMap<Uuid, Addr<Game>>>,
+    game: web::Data<Addr<Game>>,
   ) -> Result<HttpResponse, Error> {
-  let game_uuid = Uuid::parse_str(&game_id);
-  if game_uuid.is_err() {
-    panic!("Malformed uuid"); // Some kind of HTTP error should be implemented
-  }
-
-  // It doesn't let me do this comparrison :(
-  let game_addr = game_pool.iter().find(|pool_item: &(&Uuid, &Addr<Game>)| pool_item.0 == game_uuid);
-
-  todo!()
-  // ws::start(WebSocket::new(), &req, stream)
+  ws::start(WebSocket::new(game.get_ref().clone()), &req, stream)
 }
 
 impl Handler<WsMessage> for WebSocket {

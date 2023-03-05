@@ -8,19 +8,12 @@ use crate::message::{WsMessage, GameMessage, Disconnect, Connect};
 
 type Socket = Recipient<WsMessage>;
 
+#[derive(Default)]
 pub struct Game {
   connections: HashMap<Uuid, Socket>,
-  game_id: Uuid,
 }
 
 impl Game {
-  pub fn new(game_id: Uuid) -> Game {
-    Game {
-      connections: HashMap::new(),
-      game_id,
-    }
-  }
-
   fn send_message(&self, message: &str, recipient_id: &Uuid) {
     if let Some(socket_recipient) = self.connections.get(recipient_id) {
       socket_recipient.do_send(WsMessage(message.to_owned()));
