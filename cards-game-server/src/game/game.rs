@@ -18,7 +18,7 @@ impl Game {
     if let Some(socket_recipient) = self.connections.get(recipient_id) {
       socket_recipient.do_send(WsMessage(message.to_owned()));
     } else {
-      println!("Couldn't find connection id: '{id}' when sending message", id=recipient_id);
+      println!("Couldn't find connection id: '{}' when sending message", recipient_id);
     }
   }
 
@@ -37,8 +37,6 @@ impl Handler<Disconnect> for Game {
 
     fn handle(&mut self, msg: Disconnect, _: &mut Self::Context) -> Self::Result {
       self.connections.remove(&msg.client_id);
-
-      println!("Here once hopefully!");
 
       self.connections.keys().for_each(|conn_id: &Uuid| {
         // For now we do this probably expensive operation to define broadcast_connect_message every iteration,
@@ -60,7 +58,6 @@ impl Handler<Connect> for Game {
         r#type: json::Type::ConnectionSuccess,
         data: Some(json::Data::ConnectionData { client_uuid: Some(msg.client_id.to_string()) }),
       };
-
       
       self.connections.insert(msg.client_id, msg.client_addr);
       

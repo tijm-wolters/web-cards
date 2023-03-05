@@ -23,8 +23,6 @@ impl WebSocket {
   pub fn heart_beat(&self, ctx: &mut ws::WebsocketContext<Self>) {
     ctx.run_interval(HEARTBEAT_INTERVAL, |conn, ctx| {
       if Instant::now().duration_since(conn.heart_beat) > CLIENT_TIMEOUT {
-        println!("Here 2 once hopefully!");
-        conn.game_addr.do_send(Disconnect { client_id: conn.conn_id });
         ctx.stop();
         return;
       }
