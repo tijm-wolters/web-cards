@@ -1,7 +1,7 @@
 use actix::{Actor, Addr};
 use actix_web::{middleware, App, HttpServer, web};
 
-use crate::{api::websockets, game::Game};
+use crate::{api::websocket, game::game::Game};
 
 #[actix_web::main]
 pub async fn start_webserver() -> std::io::Result<()> {
@@ -9,7 +9,7 @@ pub async fn start_webserver() -> std::io::Result<()> {
   
   HttpServer::new(move || {
     App::new()
-    .route("/ws", web::get().to(websockets::index))
+    .route("/ws", web::get().to(websocket::index))
     .app_data(web::Data::new(game_server.clone()))
     .wrap(middleware::Logger::default())
   })

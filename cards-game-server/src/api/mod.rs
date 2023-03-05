@@ -1,3 +1,3 @@
 pub mod connection;
 
-mod websockets;
+mod websocket;

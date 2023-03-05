@@ -4,7 +4,7 @@ use actix_web_actors::ws;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
-use crate::{game::Game, message::{Connect, Disconnect, WsMessage, GameMessage}};
+use crate::{game::game::Game, message::{Connect, Disconnect, WsMessage, GameMessage}};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -23,6 +23,7 @@ impl WebSocket {
   pub fn heart_beat(&self, ctx: &mut ws::WebsocketContext<Self>) {
     ctx.run_interval(HEARTBEAT_INTERVAL, |conn, ctx| {
       if Instant::now().duration_since(conn.heart_beat) > CLIENT_TIMEOUT {
+        println!("Here 2 once hopefully!");
         conn.game_addr.do_send(Disconnect { client_id: conn.conn_id });
         ctx.stop();
         return;
