@@ -99,11 +99,13 @@ impl Handler<types::IncomingMessage> for Game {
   type Result = ();
 
   fn handle(&mut self, msg: types::IncomingMessage, _: &mut Self::Context) -> Self::Result {
-    // Check if incoming message is supported by game otherwise return some error
-    // let the game handle the request
-    
-    match self.r#type {
-      types::GameType::TicTacToe(mut game) => game.handle(msg),
-    }
+    let result = match self.r#type {
+      types::GameType::TicTacToe(mut game) => game.handle_message(&msg),
+    };
+
+    match result {
+      Ok(result) => self.broadcast_message(&result),
+      Err(result) => self.send_message(&result, &msg.player_like.client_uuid),
+    };
   }
 }

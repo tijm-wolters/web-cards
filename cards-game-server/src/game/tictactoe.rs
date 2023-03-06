@@ -1,10 +1,19 @@
-use crate::types::IncomingMessage;
+use serde::{Deserialize, Serialize};
+use serde_json;
+
+use crate::types;
 
 #[derive(Clone, Copy)]
 enum NodeState {
   Empty,
   O,
   X,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Move {
+  x: i8,
+  y: i8,
 }
 
 #[derive(Clone, Copy)]
@@ -21,7 +30,11 @@ impl Default for TicTacToe {
 }
 
 impl TicTacToe {
-  pub fn handle(&mut self, msg: IncomingMessage) {
-    todo!();
+  pub fn handle_join(&mut self) {
+    todo!()
+  }
+
+  pub fn handle_message(&mut self, msg: &types::IncomingMessage) -> Result<String, String> {
+    todo!()
   }
 }
