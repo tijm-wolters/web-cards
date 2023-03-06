@@ -4,21 +4,17 @@ use std::collections::HashMap;
 use actix::{prelude::{Actor, Context}, Handler, Recipient};
 use uuid::Uuid;
 
-use crate::{message::{WsMessage, GameMessage, Disconnect, Connect}, game::json, utils};
+use crate::{utils, types};
 
-type Socket = Recipient<WsMessage>;
-
-pub enum GameType {
-  TicTacToe,
-}
+type Client = Recipient<types::SimpleMessage>;
 
 pub struct Game {
-  connections: HashMap<Uuid, Socket>,
-  r#type: GameType,
+  connections: HashMap<Uuid, Client>,
+  r#type: types::GameType,
 }
 
 impl Game {
-  pub fn new(r#type: GameType) -> Game {
+  pub fn new(r#type: types::GameType) -> Game {
     Game {
       connections: HashMap::new(),
       r#type,
@@ -27,7 +23,7 @@ impl Game {
 
   pub fn send_message(&self, message: &str, recipient_id: &Uuid) {
     if let Some(socket_recipient) = self.connections.get(recipient_id) {
-      socket_recipient.do_send(WsMessage(message.to_owned()));
+      socket_recipient.do_send(types::SimpleMessage(message.to_owned()));
     } else {
       println!("Couldn't find connection id: '{}' when sending message", recipient_id);
     }
@@ -35,7 +31,7 @@ impl Game {
 
   pub fn broadcast_message(&self, message: &str) {
     self.connections.values().for_each(
-      |client_addr: &Recipient<WsMessage>| client_addr.do_send(WsMessage(message.to_owned())));
+      |client_addr: &Recipient<types::SimpleMessage>| client_addr.do_send(types::SimpleMessage(message.to_owned())));
   }
 }
 
@@ -43,64 +39,71 @@ impl Actor for Game {
   type Context = Context<Self>;
 }
 
-impl Handler<Disconnect> for Game {
+impl Handler<types::DisconnectMessage> for Game {
     type Result = ();
 
-    fn handle(&mut self, msg: Disconnect, _: &mut Self::Context) -> Self::Result {
-      self.connections.remove(&msg.client_id);
+    fn handle(&mut self, msg: types::DisconnectMessage, _: &mut Self::Context) -> Self::Result {
+      self.connections.remove(&msg.player_like.client_uuid);
 
       self.connections.keys().for_each(|conn_id: &Uuid| {
         // For now we do this probably expensive operation to define broadcast_connect_message every iteration,
         // this should be moved outside of scope if possible and used for each iteration.
-        let broadcast_connect_message: json::JsonMessage = json::JsonMessage {
-          r#type: json::Type::ClientDisconnected,
-          data: Some(json::Data::ConnectionData { client_uuid: Some(msg.client_id.to_string()) }),
+        let broadcast_connect_message: types::JsonMessage = types::JsonMessage {
+          r#type: types::Type::ClientDisconnected,
+          data: types::Data::PlayerLike(
+            types::JsonPlayerLike { client_uuid: msg.player_like.client_uuid.to_string() }
+          ),
         };
         utils::send_json_message(&self, broadcast_connect_message, &conn_id)
       })
     }
 }
 
-impl Handler<Connect> for Game {
+impl Handler<types::ConnectMessage> for Game {
     type Result = ();
 
-    fn handle(&mut self, msg: Connect, _: &mut Self::Context) -> Self::Result {
-      let client_connect_message: json::JsonMessage = json::JsonMessage {
-        r#type: json::Type::ConnectionSuccess,
-        data: Some(json::Data::ConnectionData { client_uuid: Some(msg.client_id.to_string()) }),
+    fn handle(&mut self, msg: types::ConnectMessage, _: &mut Self::Context) -> Self::Result {
+      let client_connect_message: types::JsonMessage = types::JsonMessage {
+        r#type: types::Type::ConnectionSuccess,
+        data: types::Data::Player(
+          types::JsonPlayer {
+            client_uuid: msg.player.client_uuid.to_string(),
+            name: msg.player.name.to_owned() }
+        ),
       };
       
-      self.connections.insert(msg.client_id, msg.client_addr);
+      self.connections.insert(msg.player.client_uuid, msg.client_addr);
       
       // Send ClientConnect to everyone but the client
-      self.connections.keys().filter(|&&conn_id: &&Uuid| conn_id != msg.client_id)
+      self.connections.keys().filter(|&&conn_id: &&Uuid| conn_id != msg.player.client_uuid)
       .for_each(|conn_id: &Uuid| {
         // For now we do this probably expensive operation to define broadcast_connect_message every iteration,
         // this should be moved outside of scope if possible and used for each iteration.
-        let broadcast_connect_message: json::JsonMessage = json::JsonMessage {
-          r#type: json::Type::ClientConnected,
-          data: Some(json::Data::ConnectionData { client_uuid: Some(msg.client_id.to_string()) }),
+        let broadcast_connect_message: types::JsonMessage = types::JsonMessage {
+          r#type: types::Type::ClientConnected,
+          data: types::Data::Player(
+            types::JsonPlayer {
+              client_uuid: msg.player.client_uuid.to_string(),
+              name: msg.player.name.to_owned() }
+          ),
         };
         utils::send_json_message(&self, broadcast_connect_message, &conn_id)
       });
 
       // Send ConnectionSuccess to the client
-      utils::send_json_message(&self, client_connect_message, &msg.client_id);
+      utils::send_json_message(&self, client_connect_message, &msg.player.client_uuid);
     }
 }
 
-impl Handler<GameMessage> for Game {
+impl Handler<types::IncomingMessage> for Game {
   type Result = ();
 
-  fn handle(&mut self, msg: GameMessage, _: &mut Self::Context) -> Self::Result {
-    // I'm thinking the game itself should keep and handle all the logic?
+  fn handle(&mut self, msg: types::IncomingMessage, _: &mut Self::Context) -> Self::Result {
+    // Check if incoming message is supported by game otherwise return some error
+    // let the game handle the request
+    
     match self.r#type {
-      GameType::TicTacToe => todo!(),
+      types::GameType::TicTacToe(mut game) => game.handle(msg),
     }
-    // Perform game logic
-    // Send response to all clients
-
-    // one to many impl for right now.
-    self.broadcast_message(&format!("Broadcast from the server: {}", msg.json));
   }
 }

@@ -4,7 +4,7 @@ use actix_web_actors::ws;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
-use crate::{game::game::Game, message::{Connect, Disconnect, WsMessage, GameMessage}};
+use crate::{game::game::Game, types};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -12,12 +12,19 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct WebSocket {
   game_addr: Addr<Game>,
   heart_beat: Instant,
-  conn_id: Uuid,
+  player: types::Player,
 }
 
 impl WebSocket {
-  pub fn new(game: Addr<Game>) -> WebSocket {
-    WebSocket { game_addr: game, heart_beat: Instant::now(), conn_id: Uuid::new_v4() }
+  pub fn new(game: Addr<Game>, name: String) -> WebSocket {
+    WebSocket {
+      game_addr: game,
+      heart_beat: Instant::now(),
+      player: types::Player {
+        client_uuid: Uuid::new_v4(),
+        name,
+      }
+    }
   }
 
   pub fn heart_beat(&self, ctx: &mut ws::WebsocketContext<Self>) {
@@ -39,9 +46,12 @@ impl Actor for WebSocket {
     self.heart_beat(ctx);
 
     let client_addr = ctx.address();
-    self.game_addr.send(Connect {
+    self.game_addr.send(types::ConnectMessage {
       client_addr: client_addr.recipient(),
-      client_id: self.conn_id,
+      player: types::Player {
+        client_uuid: self.player.client_uuid,
+        name: self.player.name.to_owned(),
+      },
     }).into_actor(self)
     .then(|res, _, ctx| {
       match res {
@@ -54,7 +64,11 @@ impl Actor for WebSocket {
   }
 
   fn stopping(&mut self, _: &mut Self::Context) -> Running {
-    self.game_addr.do_send(Disconnect { client_id: self.conn_id });
+    self.game_addr.do_send(types::DisconnectMessage {
+      player_like: types::PlayerLike {
+        client_uuid: self.player.client_uuid,
+      }
+    });
     Running::Stop
   }
 }
@@ -70,8 +84,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocket {
         self.heart_beat = Instant::now();
       }
       Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
-      Ok(ws::Message::Text(text)) => self.game_addr.do_send(GameMessage {
-        client_id: self.conn_id,
+      Ok(ws::Message::Text(text)) => self.game_addr.do_send(types::IncomingMessage {
+        player_like: { types::PlayerLike { client_uuid: self.player.client_uuid }},
         json: text.to_string(),
       }),
       _ => (),
@@ -82,15 +96,16 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebSocket {
 pub async fn index(
     req: HttpRequest,
     stream: web::Payload,
+    name: web::Path<String>,
     game: web::Data<Addr<Game>>,
   ) -> Result<HttpResponse, Error> {
-  ws::start(WebSocket::new(game.get_ref().clone()), &req, stream)
+  ws::start(WebSocket::new(game.get_ref().clone(), name.to_owned()), &req, stream)
 }
 
-impl Handler<WsMessage> for WebSocket {
+impl Handler<types::SimpleMessage> for WebSocket {
   type Result = ();
 
-  fn handle(&mut self, msg: WsMessage, ctx: &mut Self::Context) {
+  fn handle(&mut self, msg: types::SimpleMessage, ctx: &mut Self::Context) {
       ctx.text(msg.0);
   }
 }
