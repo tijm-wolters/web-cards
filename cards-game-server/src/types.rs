@@ -2,7 +2,7 @@ use actix::prelude::{Message, Recipient};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::game;
+use crate::games;
 
 //
 // ------------------ WebSocket Messages ------------------
@@ -47,18 +47,35 @@ pub struct IncomingMessage {
 
 #[derive(Serialize, Deserialize)]
 pub enum Type {
+  //
+  // ------------------ Generics ------------------
+  // 
+
   // Will be sent to one client when it has connected.
   ConnectionSuccess,
   // Will be sent to all clients when a new client has connected to the game.
   ClientConnected,
   // Will be sent to all clients when a client has disconnected from the game.
   ClientDisconnected,
+  
+  //
+  // ------------------ TicTacToe ------------------
+  //
+
+  TicTacToeStarted,
+  TicTacToeMove,
+  TicTacToeMoveIllegal,
+  TicTacToeWinner,
+  TicTacToeDraw,
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum Data {
   Player(JsonPlayer),
   PlayerLike(JsonPlayerLike),
+  TicTacToeStarted(JsonTicTacToeStarted),
+  TicTacToeMove(JsonTicTacToeMove),
+  TicTacToeMoveSuccess(JsonTicTacToeMoveSuccess),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -100,6 +117,31 @@ pub struct PlayerLike {
   pub client_uuid: Uuid,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct JsonTicTacToeStarted {
+  pub player_o: String,
+  pub player_x: String,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub struct JsonTicTacToeMove {
+  pub x: usize,
+  pub y: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum JsonTicTacToePlayer {
+  X,
+  O,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct JsonTicTacToeMoveSuccess {
+  pub x: usize,
+  pub y: usize,
+  pub player: JsonTicTacToePlayer,
+}
+
 pub enum GameType {
-  TicTacToe(game::tictactoe::TicTacToe),
+  TicTacToe(games::tictactoe::TicTacToe),
 }

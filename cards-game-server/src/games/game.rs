@@ -9,7 +9,7 @@ use crate::{utils, types};
 type Client = Recipient<types::SimpleMessage>;
 
 pub struct Game {
-  connections: HashMap<Uuid, Client>,
+  pub connections: HashMap<Uuid, Client>,
   r#type: types::GameType,
 }
 
@@ -33,6 +33,18 @@ impl Game {
     self.connections.values().for_each(
       |client_addr: &Recipient<types::SimpleMessage>| client_addr.do_send(types::SimpleMessage(message.to_owned())));
   }
+
+  fn check_notify(&mut self) {
+    // Allow clippy rule as more games will be addedTM
+    #[allow(clippy::infallible_destructuring_match)]
+    let mut game = match self.r#type {
+      types::GameType::TicTacToe(game) => game,
+    };
+
+    if self.connections.len() >= game.max_players.try_into().unwrap() {
+      game.init(self);
+    }
+  }
 }
 
 impl Actor for Game {
@@ -54,7 +66,7 @@ impl Handler<types::DisconnectMessage> for Game {
             types::JsonPlayerLike { client_uuid: msg.player_like.client_uuid.to_string() }
           ),
         };
-        utils::send_json_message(&self, broadcast_connect_message, &conn_id)
+        utils::send_json_message(&self, broadcast_connect_message, Some(conn_id))
       })
     }
 }
@@ -71,9 +83,9 @@ impl Handler<types::ConnectMessage> for Game {
             name: msg.player.name.to_owned() }
         ),
       };
-      
+
       self.connections.insert(msg.player.client_uuid, msg.client_addr);
-      
+
       // Send ClientConnect to everyone but the client
       self.connections.keys().filter(|&&conn_id: &&Uuid| conn_id != msg.player.client_uuid)
       .for_each(|conn_id: &Uuid| {
@@ -87,11 +99,14 @@ impl Handler<types::ConnectMessage> for Game {
               name: msg.player.name.to_owned() }
           ),
         };
-        utils::send_json_message(&self, broadcast_connect_message, &conn_id)
+        utils::send_json_message(&self, broadcast_connect_message, Some(conn_id))
       });
 
       // Send ConnectionSuccess to the client
-      utils::send_json_message(&self, client_connect_message, &msg.player.client_uuid);
+      utils::send_json_message(&self, client_connect_message, Some(&msg.player.client_uuid));
+
+      // Check if we should initialize the game
+      self.check_notify();
     }
 }
 
@@ -99,13 +114,8 @@ impl Handler<types::IncomingMessage> for Game {
   type Result = ();
 
   fn handle(&mut self, msg: types::IncomingMessage, _: &mut Self::Context) -> Self::Result {
-    let result = match self.r#type {
-      types::GameType::TicTacToe(mut game) => game.handle_message(&msg),
-    };
-
-    match result {
-      Ok(result) => self.broadcast_message(&result),
-      Err(result) => self.send_message(&result, &msg.player_like.client_uuid),
-    };
+    match self.r#type {
+      types::GameType::TicTacToe(mut game) => game.handle(self, &msg),
+    }
   }
 }

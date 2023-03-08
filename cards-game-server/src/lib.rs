@@ -1,4 +1,4 @@
 pub mod api;
-pub mod game;
+pub mod games;
 pub mod types;
 pub mod utils;
