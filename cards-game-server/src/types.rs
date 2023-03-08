@@ -19,21 +19,21 @@ pub struct SimpleMessage(pub String);
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct ConnectMessage {
-  pub client_addr: Recipient<SimpleMessage>,
-  pub player: Player,
+    pub client_addr: Recipient<SimpleMessage>,
+    pub player: Player,
 }
 
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct DisconnectMessage {
-  pub player_like: PlayerLike,
+    pub player_like: PlayerLike,
 }
 
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct IncomingMessage {
-  pub player_like: PlayerLike,
-  pub json: String,
+    pub player_like: PlayerLike,
+    pub json: String,
 }
 
 //
@@ -47,41 +47,40 @@ pub struct IncomingMessage {
 
 #[derive(Serialize, Deserialize)]
 pub enum Type {
-  //
-  // ------------------ Generics ------------------
-  // 
+    //
+    // ------------------ Generics ------------------
+    //
 
-  // Will be sent to one client when it has connected.
-  ConnectionSuccess,
-  // Will be sent to all clients when a new client has connected to the game.
-  ClientConnected,
-  // Will be sent to all clients when a client has disconnected from the game.
-  ClientDisconnected,
-  
-  //
-  // ------------------ TicTacToe ------------------
-  //
+    // Will be sent to one client when it has connected.
+    ConnectionSuccess,
+    // Will be sent to all clients when a new client has connected to the game.
+    ClientConnected,
+    // Will be sent to all clients when a client has disconnected from the game.
+    ClientDisconnected,
 
-  TicTacToeStarted,
-  TicTacToeMove,
-  TicTacToeMoveIllegal,
-  TicTacToeWinner,
-  TicTacToeDraw,
+    //
+    // ------------------ TicTacToe ------------------
+    //
+    TicTacToeStarted,
+    TicTacToeMove,
+    TicTacToeMoveIllegal,
+    TicTacToeWinner,
+    TicTacToeDraw,
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum Data {
-  Player(JsonPlayer),
-  PlayerLike(JsonPlayerLike),
-  TicTacToeStarted(JsonTicTacToeStarted),
-  TicTacToeMove(JsonTicTacToeMove),
-  TicTacToeMoveSuccess(JsonTicTacToeMoveSuccess),
+    Player(JsonPlayer),
+    PlayerLike(JsonPlayerLike),
+    TicTacToeStarted(JsonTicTacToeStarted),
+    TicTacToeMove(JsonTicTacToeMove),
+    TicTacToeMoveSuccess(JsonTicTacToeMoveSuccess),
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct JsonMessage {
-  pub r#type: Type,
-  pub data: Data,
+    pub r#type: Type,
+    pub data: Data,
 }
 
 //
@@ -98,50 +97,50 @@ pub struct JsonMessage {
 
 #[derive(Serialize, Deserialize)]
 pub struct JsonPlayer {
-  pub client_uuid: String,
-  pub name: String,
+    pub client_uuid: String,
+    pub name: String,
 }
 
 pub struct Player {
-  pub client_uuid: Uuid,
-  pub name: String,
+    pub client_uuid: Uuid,
+    pub name: String,
 }
 
 // Used when you only communicating the identifier, happens mostly internally.
 #[derive(Serialize, Deserialize)]
 pub struct JsonPlayerLike {
-  pub client_uuid: String,
+    pub client_uuid: String,
 }
 
 pub struct PlayerLike {
-  pub client_uuid: Uuid,
+    pub client_uuid: Uuid,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct JsonTicTacToeStarted {
-  pub player_o: String,
-  pub player_x: String,
+    pub player_o: String,
+    pub player_x: String,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct JsonTicTacToeMove {
-  pub x: usize,
-  pub y: usize,
+    pub x: usize,
+    pub y: usize,
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum JsonTicTacToePlayer {
-  X,
-  O,
+    X,
+    O,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct JsonTicTacToeMoveSuccess {
-  pub x: usize,
-  pub y: usize,
-  pub player: JsonTicTacToePlayer,
+    pub x: usize,
+    pub y: usize,
+    pub player: JsonTicTacToePlayer,
 }
 
 pub enum GameType {
-  TicTacToe(games::tictactoe::TicTacToe),
+    TicTacToe(games::tictactoe::TicTacToe),
 }
