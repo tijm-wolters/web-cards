@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use actix::{
     prelude::{Actor, Context},
@@ -65,20 +65,18 @@ impl Handler<types::DisconnectMessage> for Game {
     type Result = ();
 
     fn handle(&mut self, msg: types::DisconnectMessage, _: &mut Self::Context) -> Self::Result {
+        let broadcast_connect_message: Arc<types::JsonMessage> = Arc::new(types::JsonMessage {
+            r#type: types::Type::ClientDisconnected,
+            data: types::Data::PlayerLike(types::JsonPlayerLike {
+                client_uuid: msg.player_like.client_uuid.to_string(),
+            }),
+        });
+
         self.connections.remove(&msg.player_like.client_uuid);
 
         self.connections.keys().for_each(|conn_id: &Uuid| {
-            // For now we do this probably expensive operation to define broadcast_connect_message every iteration,
-            // this should be moved outside of scope if possible and used for each iteration.
-            let broadcast_connect_message: types::JsonMessage = types::JsonMessage {
-                r#type: types::Type::ClientDisconnected,
-                data: types::Data::PlayerLike(types::JsonPlayerLike {
-                    client_uuid: msg.player_like.client_uuid.to_string(),
-                }),
-            };
-
             if let Err(error) =
-                utils::send_json_message(&self, &broadcast_connect_message, Some(conn_id))
+                utils::send_json_message(&self, &broadcast_connect_message.as_ref(), Some(conn_id))
             {
                 eprintln!(
                     "Broadcasting message {:?} failed: {}",
@@ -93,6 +91,14 @@ impl Handler<types::ConnectMessage> for Game {
     type Result = ();
 
     fn handle(&mut self, msg: types::ConnectMessage, _: &mut Self::Context) -> Self::Result {
+        let broadcast_connect_message: Arc<types::JsonMessage> = Arc::new(types::JsonMessage {
+            r#type: types::Type::ClientConnected,
+            data: types::Data::Player(types::JsonPlayer {
+                client_uuid: msg.player.client_uuid.to_string(),
+                name: msg.player.name.to_owned(),
+            }),
+        });
+
         let client_connect_message: types::JsonMessage = types::JsonMessage {
             r#type: types::Type::ConnectionSuccess,
             data: types::Data::Player(types::JsonPlayer {
@@ -109,18 +115,11 @@ impl Handler<types::ConnectMessage> for Game {
             .keys()
             .filter(|&&conn_id: &&Uuid| conn_id != msg.player.client_uuid)
             .for_each(|conn_id: &Uuid| {
-                // For now we do this probably expensive operation to define broadcast_connect_message every iteration,
-                // this should be moved outside of scope if possible and used for each iteration.
-                let broadcast_connect_message: types::JsonMessage = types::JsonMessage {
-                    r#type: types::Type::ClientConnected,
-                    data: types::Data::Player(types::JsonPlayer {
-                        client_uuid: msg.player.client_uuid.to_string(),
-                        name: msg.player.name.to_owned(),
-                    }),
-                };
-                if let Err(error) =
-                    utils::send_json_message(&self, &broadcast_connect_message, Some(conn_id))
-                {
+                if let Err(error) = utils::send_json_message(
+                    &self,
+                    &broadcast_connect_message.as_ref(),
+                    Some(conn_id),
+                ) {
                     eprintln!("Something went wrong: {}", error);
                 }
             });

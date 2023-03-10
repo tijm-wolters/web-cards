@@ -150,8 +150,9 @@ impl TicTacToe {
 
         println!("{:?}", self.board);
 
-        Ok(())
         // TODO: Check if the move was winning
         // TODO: Broadcast the winning player
+
+        Ok(())
     }
 }
