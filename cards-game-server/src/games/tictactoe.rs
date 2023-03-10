@@ -2,7 +2,7 @@ use rand::Rng;
 use serde_json;
 use uuid::Uuid;
 
-use crate::{types, utils};
+use crate::{error, types, utils};
 
 use crate::games::game::Game;
 
@@ -13,7 +13,7 @@ enum NodeState {
     X,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TicTacToe {
     // Configuration for outside use
     pub min_players: i8,
@@ -47,7 +47,7 @@ impl Default for TicTacToe {
 
 impl TicTacToe {
     // There is no message saying which player can begin this is always player X.
-    pub fn init(&mut self, game: &mut Game) {
+    pub fn init(&mut self, game: &mut Game) -> Result<(), error::GameError> {
         let mut rng = rand::thread_rng();
         let n: usize = rng.gen_range(0..2);
 
@@ -78,12 +78,17 @@ impl TicTacToe {
             }),
         };
 
-        utils::send_json_message(&game, message, None);
+        utils::send_json_message(&game, &message, None)?;
+
+        Ok(())
     }
 
-    pub fn handle(&mut self, game: &mut Game, msg: &types::IncomingMessage) {
-        // TODO: Don't just unwrap, return error to the client if json is malformed.
-        let r#move: types::JsonTicTacToeMove = serde_json::from_str(&msg.json).unwrap();
+    pub fn handle(
+        &mut self,
+        game: &mut Game,
+        msg: &types::IncomingMessage,
+    ) -> Result<(), error::GameError> {
+        let r#move: types::JsonTicTacToeMove = serde_json::from_str(&msg.json)?;
 
         let illegal_move_message = types::JsonMessage {
             r#type: types::Type::TicTacToeMoveIllegal,
@@ -93,12 +98,12 @@ impl TicTacToe {
         // Player is moving out of turn
         if self.nth_move % 2 == 0 {
             if self.player_o == Some(msg.player_like.client_uuid) {
-                utils::send_json_message(&game, illegal_move_message, self.player_o.as_ref());
-                return;
+                utils::send_json_message(&game, &illegal_move_message, self.player_o.as_ref())?;
+                return Ok(());
             };
         } else if self.player_x == Some(msg.player_like.client_uuid) {
-            utils::send_json_message(&game, illegal_move_message, self.player_x.as_ref());
-            return;
+            utils::send_json_message(&game, &illegal_move_message, self.player_x.as_ref())?;
+            return Ok(());
         };
 
         // Player is moving outside the 3x3 board
@@ -108,14 +113,14 @@ impl TicTacToe {
         {
             utils::send_json_message(
                 &game,
-                illegal_move_message,
+                &illegal_move_message,
                 if self.nth_move % 2 == 0 {
                     self.player_x.as_ref()
                 } else {
                     self.player_o.as_ref()
                 },
-            );
-            return;
+            )?;
+            return Ok(());
         };
 
         // Process the move
@@ -141,10 +146,11 @@ impl TicTacToe {
             },
         };
 
-        utils::send_json_message(&game, move_message, None);
+        utils::send_json_message(&game, &move_message, None)?;
 
         println!("{:?}", self.board);
 
+        Ok(())
         // TODO: Check if the move was winning
         // TODO: Broadcast the winning player
     }

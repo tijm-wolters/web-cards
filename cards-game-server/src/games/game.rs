@@ -6,7 +6,7 @@ use actix::{
 };
 use uuid::Uuid;
 
-use crate::{types, utils};
+use crate::{error, types, utils};
 
 type Client = Recipient<types::SimpleMessage>;
 
@@ -42,7 +42,7 @@ impl Game {
             });
     }
 
-    fn check_notify(&mut self) {
+    fn check_notify(&mut self) -> Result<(), error::GameError> {
         // Allow clippy rule as more games will be addedTM
         #[allow(clippy::infallible_destructuring_match)]
         let mut game = match self.r#type {
@@ -50,8 +50,10 @@ impl Game {
         };
 
         if self.connections.len() >= game.max_players.try_into().unwrap() {
-            game.init(self);
+            game.init(self)?;
         }
+
+        Ok(())
     }
 }
 
@@ -74,7 +76,15 @@ impl Handler<types::DisconnectMessage> for Game {
                     client_uuid: msg.player_like.client_uuid.to_string(),
                 }),
             };
-            utils::send_json_message(&self, broadcast_connect_message, Some(conn_id))
+
+            if let Err(error) =
+                utils::send_json_message(&self, &broadcast_connect_message, Some(conn_id))
+            {
+                eprintln!(
+                    "Broadcasting message {:?} failed: {}",
+                    broadcast_connect_message, error,
+                );
+            }
         })
     }
 }
@@ -108,14 +118,26 @@ impl Handler<types::ConnectMessage> for Game {
                         name: msg.player.name.to_owned(),
                     }),
                 };
-                utils::send_json_message(&self, broadcast_connect_message, Some(conn_id))
+                if let Err(error) =
+                    utils::send_json_message(&self, &broadcast_connect_message, Some(conn_id))
+                {
+                    eprintln!("Something went wrong: {}", error);
+                }
             });
 
         // Send ConnectionSuccess to the client
-        utils::send_json_message(&self, client_connect_message, Some(&msg.player.client_uuid));
+        if let Err(error) = utils::send_json_message(
+            &self,
+            &client_connect_message,
+            Some(&msg.player.client_uuid),
+        ) {
+            eprintln!("Something went wrong: {}", error);
+        }
 
         // Check if we should initialize the game
-        self.check_notify();
+        if let Err(error) = self.check_notify() {
+            eprintln!("Something went wrong: {}", error);
+        }
     }
 }
 
@@ -124,7 +146,11 @@ impl Handler<types::IncomingMessage> for Game {
 
     fn handle(&mut self, msg: types::IncomingMessage, _: &mut Self::Context) -> Self::Result {
         match self.r#type {
-            types::GameType::TicTacToe(mut game) => game.handle(self, &msg),
+            types::GameType::TicTacToe(mut game) => {
+                if let Err(error) = game.handle(self, &msg) {
+                    eprintln!("Something went wrong: {}", error);
+                }
+            }
         }
     }
 }

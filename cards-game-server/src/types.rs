@@ -45,7 +45,7 @@ pub struct IncomingMessage {
 // string when being sent over the WebSocket connection.
 //
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Type {
     //
     // ------------------ Generics ------------------
@@ -68,7 +68,7 @@ pub enum Type {
     TicTacToeDraw,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Data {
     Player(JsonPlayer),
     PlayerLike(JsonPlayerLike),
@@ -77,7 +77,7 @@ pub enum Data {
     TicTacToeMoveSuccess(JsonTicTacToeMoveSuccess),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsonMessage {
     pub r#type: Type,
     pub data: Data,
@@ -95,52 +95,55 @@ pub struct JsonMessage {
 // serde::Serialize or serde::Deserialize.
 //
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsonPlayer {
     pub client_uuid: String,
     pub name: String,
 }
 
+#[derive(Debug)]
 pub struct Player {
     pub client_uuid: Uuid,
     pub name: String,
 }
 
 // Used when you only communicating the identifier, happens mostly internally.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsonPlayerLike {
     pub client_uuid: String,
 }
 
+#[derive(Debug)]
 pub struct PlayerLike {
     pub client_uuid: Uuid,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsonTicTacToeStarted {
     pub player_o: String,
     pub player_x: String,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct JsonTicTacToeMove {
     pub x: usize,
     pub y: usize,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum JsonTicTacToePlayer {
     X,
     O,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct JsonTicTacToeMoveSuccess {
     pub x: usize,
     pub y: usize,
     pub player: JsonTicTacToePlayer,
 }
 
+#[derive(Debug)]
 pub enum GameType {
     TicTacToe(games::tictactoe::TicTacToe),
 }
