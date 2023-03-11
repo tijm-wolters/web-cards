@@ -2,8 +2,6 @@ use actix::prelude::{Message, Recipient};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::games;
-
 //
 // ------------------ WebSocket Messages ------------------
 //
@@ -141,9 +139,4 @@ pub struct JsonTicTacToeMoveSuccess {
     pub x: usize,
     pub y: usize,
     pub player: JsonTicTacToePlayer,
-}
-
-#[derive(Debug)]
-pub enum GameType {
-    TicTacToe(games::tictactoe::TicTacToe),
 }
