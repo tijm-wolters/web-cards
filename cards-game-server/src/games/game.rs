@@ -7,9 +7,17 @@ use actix::{
 use rand::Rng;
 use uuid::Uuid;
 
-use crate::{error, types, utils};
+use crate::{
+    error,
+    types::{
+        ConnectMessage, Data, DisconnectMessage, IncomingMessage, JsonMessage, JsonPlayer,
+        JsonPlayerLike, JsonTicTacToeMove, JsonTicTacToeMoveSuccess, JsonTicTacToePlayer,
+        JsonTicTacToeStarted, SimpleMessage, Type,
+    },
+    utils,
+};
 
-type Client = Recipient<types::SimpleMessage>;
+type Client = Recipient<SimpleMessage>;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum NodeState {
@@ -19,7 +27,7 @@ enum NodeState {
 }
 
 #[derive(Clone, Debug)]
-pub struct Game {
+pub struct TicTacToe {
     connections: HashMap<Uuid, Client>,
 
     max_players: i8,
@@ -34,9 +42,9 @@ pub struct Game {
     player_x: Option<Uuid>,
 }
 
-impl Default for Game {
-    fn default() -> Game {
-        Game {
+impl Default for TicTacToe {
+    fn default() -> TicTacToe {
+        TicTacToe {
             connections: HashMap::new(),
 
             max_players: 2,
@@ -51,10 +59,10 @@ impl Default for Game {
     }
 }
 
-impl Game {
+impl TicTacToe {
     pub fn send_message(&self, message: &str, recipient_id: &Uuid) {
         if let Some(socket_recipient) = self.connections.get(recipient_id) {
-            socket_recipient.do_send(types::SimpleMessage(message.to_owned()));
+            socket_recipient.do_send(SimpleMessage(message.to_owned()));
         } else {
             println!(
                 "Couldn't find connection id: '{}' when sending message",
@@ -66,8 +74,8 @@ impl Game {
     pub fn broadcast_message(&self, message: &str) {
         self.connections
             .values()
-            .for_each(|client_addr: &Recipient<types::SimpleMessage>| {
-                client_addr.do_send(types::SimpleMessage(message.to_owned()))
+            .for_each(|client_addr: &Recipient<SimpleMessage>| {
+                client_addr.do_send(SimpleMessage(message.to_owned()))
             });
     }
 
@@ -95,9 +103,9 @@ impl Game {
                 None => panic!("player_o should exist, but doesn't."),
             };
 
-            let message: types::JsonMessage = types::JsonMessage {
-                r#type: types::Type::TicTacToeStarted,
-                data: types::Data::TicTacToeStarted(types::JsonTicTacToeStarted {
+            let message: JsonMessage = JsonMessage {
+                r#type: Type::TicTacToeStarted,
+                data: Data::TicTacToeStarted(JsonTicTacToeStarted {
                     player_o: player_o.to_string(),
                     player_x: player_x.to_string(),
                 }),
@@ -110,17 +118,17 @@ impl Game {
     }
 }
 
-impl Actor for Game {
+impl Actor for TicTacToe {
     type Context = Context<Self>;
 }
 
-impl Handler<types::DisconnectMessage> for Game {
+impl Handler<DisconnectMessage> for TicTacToe {
     type Result = ();
 
-    fn handle(&mut self, msg: types::DisconnectMessage, _: &mut Self::Context) -> Self::Result {
-        let broadcast_connect_message: Arc<types::JsonMessage> = Arc::new(types::JsonMessage {
-            r#type: types::Type::ClientDisconnected,
-            data: types::Data::PlayerLike(types::JsonPlayerLike {
+    fn handle(&mut self, msg: DisconnectMessage, _: &mut Self::Context) -> Self::Result {
+        let broadcast_connect_message: Arc<JsonMessage> = Arc::new(JsonMessage {
+            r#type: Type::ClientDisconnected,
+            data: Data::PlayerLike(JsonPlayerLike {
                 client_uuid: msg.player_like.client_uuid.to_string(),
             }),
         });
@@ -140,21 +148,21 @@ impl Handler<types::DisconnectMessage> for Game {
     }
 }
 
-impl Handler<types::ConnectMessage> for Game {
+impl Handler<ConnectMessage> for TicTacToe {
     type Result = ();
 
-    fn handle(&mut self, msg: types::ConnectMessage, _: &mut Self::Context) -> Self::Result {
-        let broadcast_connect_message: Arc<types::JsonMessage> = Arc::new(types::JsonMessage {
-            r#type: types::Type::ClientConnected,
-            data: types::Data::Player(types::JsonPlayer {
+    fn handle(&mut self, msg: ConnectMessage, _: &mut Self::Context) -> Self::Result {
+        let broadcast_connect_message: Arc<JsonMessage> = Arc::new(JsonMessage {
+            r#type: Type::ClientConnected,
+            data: Data::Player(JsonPlayer {
                 client_uuid: msg.player.client_uuid.to_string(),
                 name: msg.player.name.to_owned(),
             }),
         });
 
-        let client_connect_message: types::JsonMessage = types::JsonMessage {
-            r#type: types::Type::ConnectionSuccess,
-            data: types::Data::Player(types::JsonPlayer {
+        let client_connect_message: JsonMessage = JsonMessage {
+            r#type: Type::ConnectionSuccess,
+            data: Data::Player(JsonPlayer {
                 client_uuid: msg.player.client_uuid.to_string(),
                 name: msg.player.name.to_owned(),
             }),
@@ -193,16 +201,16 @@ impl Handler<types::ConnectMessage> for Game {
     }
 }
 
-impl Handler<types::IncomingMessage> for Game {
+impl Handler<IncomingMessage> for TicTacToe {
     type Result = ();
 
-    fn handle(&mut self, msg: types::IncomingMessage, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: IncomingMessage, _: &mut Self::Context) -> Self::Result {
         // TODO: Don't just unwrap, return error to the client if json is malformed.
-        let r#move: types::JsonTicTacToeMove = serde_json::from_str(&msg.json).unwrap();
+        let r#move: JsonTicTacToeMove = serde_json::from_str(&msg.json).unwrap();
 
-        let illegal_move_message = types::JsonMessage {
-            r#type: types::Type::TicTacToeMoveIllegal,
-            data: { types::Data::TicTacToeMove(r#move) },
+        let illegal_move_message = JsonMessage {
+            r#type: Type::TicTacToeMoveIllegal,
+            data: { Data::TicTacToeMove(r#move) },
         };
 
         // Player is moving out of turn
@@ -241,16 +249,16 @@ impl Handler<types::IncomingMessage> for Game {
         };
         self.nth_move += 1;
 
-        let move_message = types::JsonMessage {
-            r#type: types::Type::TicTacToeMove,
+        let move_message = JsonMessage {
+            r#type: Type::TicTacToeMove,
             data: {
-                types::Data::TicTacToeMoveSuccess(types::JsonTicTacToeMoveSuccess {
+                Data::TicTacToeMoveSuccess(JsonTicTacToeMoveSuccess {
                     x: r#move.x,
                     y: r#move.y,
                     player: if self.nth_move % 2 == 0 {
-                        types::JsonTicTacToePlayer::X
+                        JsonTicTacToePlayer::X
                     } else {
-                        types::JsonTicTacToePlayer::O
+                        JsonTicTacToePlayer::O
                     },
                 })
             },

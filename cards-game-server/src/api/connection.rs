@@ -1,11 +1,11 @@
 use actix::{Actor, Addr};
 use actix_web::{middleware, web, App, HttpServer};
 
-use crate::{api::websocket, games::game::Game};
+use crate::{api::websocket, games::game::TicTacToe};
 
 #[actix_web::main]
 pub async fn start_webserver() -> std::io::Result<()> {
-    let game_server: Addr<Game> = Game::default().start();
+    let game_server: Addr<TicTacToe> = TicTacToe::default().start();
 
     HttpServer::new(move || {
         App::new()
